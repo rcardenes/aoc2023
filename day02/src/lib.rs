@@ -33,6 +33,18 @@ impl GameData {
 
         Ok(GameData::new(red, green, blue))
     }
+
+    pub fn merge_larger(&self, other: &GameData) -> GameData {
+        GameData::new(
+            std::cmp::max(self.red, other.red),
+            std::cmp::max(self.green, other.green),
+            std::cmp::max(self.blue, other.blue),
+            )
+    }
+    
+    pub fn power(&self) -> usize {
+        self.red * self.green * self.blue
+    }
 }
 
 #[derive(Debug)]
@@ -48,6 +60,14 @@ impl Game {
                  draw.blue <= reference.blue &&
                  draw.red <= reference.red &&
                  draw.green <= reference.green)
+    }
+
+    pub fn minimal_set(&self) -> GameData {
+        self.draws
+            .iter()
+            .fold(
+                GameData::new(0, 0, 0),
+                |acc, elem| acc.merge_larger(elem))
     }
 }
 
