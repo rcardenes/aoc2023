@@ -1,12 +1,13 @@
 use std::io::stdin;
 
+const DIGITS: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
 fn collect_values(st: &str) -> u32 {
-    let digits = '0'..='9';
-    let d_list = st.chars()
-        .filter(|c| digits.contains(c))
+    let chars = st.match_indices(DIGITS)
+        .map(|(_, ch)| ch)
         .collect::<Vec<_>>();
 
-    let result: String = vec![d_list.first().unwrap(), d_list.last().unwrap()].into_iter().collect();
+    let result: String = vec![*chars.first().unwrap(), *chars.last().unwrap()].into_iter().collect();
 
     result.parse::<u32>().unwrap()
 }

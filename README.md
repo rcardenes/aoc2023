@@ -10,4 +10,4 @@ This is part of the Telegram "AoC Canarias" channel discussion. Repos from other
 * [Juan Ignacio Rodríguez de León](https://github.com/euribates/advent_of_code_2022)
 * [CristoJV](https://github.com/CristoJV/aoc)
 * [Lucas Hernández Abreu](https://github.com/lucashdez/AdventOfCode)
-
+* [H0smax](https://github.com/H0smax/AoC-2023)
