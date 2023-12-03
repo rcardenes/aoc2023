@@ -28,5 +28,5 @@ fn main() {
     let ratios = maybe_gears.iter()
         .filter_map(|mg| mg.gear_ratio(&numbers));
 
-    println!("The added ratios are: {:#?}", ratios.sum::<u32>());
+    println!("The added ratios are: {}", ratios.sum::<u32>());
 }

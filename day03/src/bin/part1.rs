@@ -22,7 +22,7 @@ fn main() {
         }
     }
 
-    let parts = numbers.iter().filter(|number| number.is_part_num(&symbols)).collect::<Vec<_>>();
+    let parts = numbers.iter().filter(|number| number.is_part_num(&symbols));
 
-    println!("The sum of all the part numbers is: {}", parts.iter().map(|part| part.value).sum::<u32>());
+    println!("The sum of all the part numbers is: {}", parts.map(|part| part.value).sum::<u32>());
 }
