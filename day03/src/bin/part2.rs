@@ -1,23 +1,23 @@
 use std::io::stdin;
 
-use day03::{parse_line, SchematicObject};
+use day03::{parse_line, SchematicObject, Symbol, Number};
 
 fn main() {
     let mut lines = stdin().lines().enumerate();
-    let mut maybe_gears: Vec<SchematicObject> = vec![];
-    let mut numbers: Vec<SchematicObject> = vec![];
+    let mut maybe_gears: Vec<Symbol> = vec![];
+    let mut numbers: Vec<Number> = vec![];
 
     while let Some((row, Ok(line))) = lines.next() {
         let row = row as i32;
 
         for object in parse_line(&line, row as i32) {
             match object {
-                SchematicObject::Number { .. } => {
-                    numbers.push(object)
+                SchematicObject::Numeric(num) => {
+                    numbers.push(num)
                 }
-                SchematicObject::Symbol { symbol, .. } => {
-                    if symbol == '*' {
-                        maybe_gears.push(object);
+                SchematicObject::Symbolic(sym) => {
+                    if sym.maybe_gear() {
+                        maybe_gears.push(sym);
                     }
                 }
             }
@@ -25,7 +25,8 @@ fn main() {
     }
 
     numbers.retain(|number| number.is_part_num(&maybe_gears));
-    let gears = maybe_gears.iter().filter(|mg| mg.is_gear(&numbers)).collect::<Vec<_>>();
+    let ratios = maybe_gears.iter()
+        .filter_map(|mg| mg.gear_ratio(&numbers));
 
-    println!("The added ratios are: {:#?}", gears.iter().map(|gear| gear.gear_ratio(&numbers)).sum::<u32>());
+    println!("The added ratios are: {:#?}", ratios.sum::<u32>());
 }

@@ -1,95 +1,101 @@
 #[derive(Debug, PartialEq)]
-pub struct Coords {
-    x: i32,
-    y: i32,
+struct Coords {
+    col: i32,
+    row: i32,
+}
+
+#[derive(Debug, PartialEq)]
+struct CoordRange {
+    left_col: i32,
+    right_col: i32,
+    row: i32,
+}
+
+impl CoordRange {
+    fn new(cols: &[i32], row: i32) -> Self {
+        CoordRange {
+            left_col: cols[0],
+            right_col: *cols.last().unwrap(),
+            row
+        }
+    }
+
+    fn adjacent_to(&self, point: &Coords) -> bool {
+        (self.row - point.row).abs() < 2 &&
+            (self.left_col..=self.right_col).any(|col| (col - point.col).abs() < 2)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Number {
+    pub value: u32,
+    coords: CoordRange,
+}
+
+impl Number {
+    fn new(value: u32, cols: &[i32], row: i32) -> Self {
+        Number {
+            value,
+            coords: CoordRange::new(cols, row),
+        }
+    }
+
+    pub fn is_part_num(&self, symbols: &[Symbol]) -> bool {
+        symbols.iter().any(|symbol| self.adjacent_to(symbol))
+    }
+
+    fn adjacent_to(&self, symbol: &Symbol) -> bool {
+        self.coords.adjacent_to(&symbol.coords)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Symbol {
+    ch: char,
+    coords: Coords,
+}
+
+impl Symbol {
+    pub fn new(ch: char, col: i32, row: i32) -> Self {
+        Symbol {
+            ch,
+            coords: Coords { col, row },
+        }
+    }
+
+    pub fn maybe_gear(&self) -> bool {
+        self.ch == '*'
+    }
+
+    pub fn gear_ratio(&self, parts: &[Number]) -> Option<u32> {
+        if !self.maybe_gear() { return None };
+
+        let adjacent_parts = parts.iter()
+            .filter(|&part| part.adjacent_to(self))
+            .map(|part| part.value )
+            .collect::<Vec<_>>();
+        if adjacent_parts.len() != 2 { return None };
+
+        Some(adjacent_parts[0] * adjacent_parts[1])
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum SchematicObject {
-    Number { number: u32, coords: Vec<Coords> },
-    Symbol { symbol: char, coords: Coords },
+    Numeric(Number),
+    Symbolic(Symbol),
 }
 
 impl SchematicObject {
     fn new(members: &[char], columns: &[i32], row: i32) -> Self {
         match members[0] {
             '0'..='9' => {
-                SchematicObject::Number {
-                    number: String::from_iter(members).parse::<u32>().unwrap(),
-                    coords: columns.iter().map(|&x| Coords { x, y: row }).collect::<Vec<_>>(),
-                }
+                SchematicObject::Numeric(
+                    Number::new(String::from_iter(members).parse::<u32>().unwrap(), columns, row))
             }
             c => {
-                SchematicObject::Symbol { symbol: c, coords: Coords { x: columns[0], y: row } }
+                SchematicObject::Symbolic(Symbol { ch: c, coords: Coords { col: columns[0], row } })
             }
-        }
-    }
-
-    pub fn neighbors_row(&self, row: i32) -> bool {
-        let obj_row = match self {
-            SchematicObject::Symbol { coords, .. } => { coords.y }
-            SchematicObject::Number { coords, .. } => { coords[0].y }
-        };
-
-        (obj_row - row).abs() < 2
-    }
-
-    pub fn num(&self) -> u32 {
-        match self {
-            &Self::Number { number, .. } => number,
-            _ => unimplemented!() // Won't happen... hopefully!
-        }
-    }
-
-    // Used to compare adjacency of a Number (self) an a Symbol (other)
-    pub fn adjacent_to(&self, other: &SchematicObject) -> bool {
-        let my_coords = match self {
-            Self::Number { coords, .. } => coords,
-            _ => unimplemented!() // Not happening...
-        };
-
-        let other_coords = match other {
-            Self::Symbol { coords, .. } => coords,
-            _ => unimplemented!() // ...
-        };
-
-        my_coords.iter().any(|Coords { x, y }|
-                             (y - other_coords.y).abs() < 2 && 
-                             (x - other_coords.x).abs() < 2
-                            )
-    }
-
-    pub fn is_part_num(&self, symbols: &[SchematicObject]) -> bool {
-        match self {
-            SchematicObject::Number { .. } => {
-                symbols.iter()
-                    .any(|member|
-                         match member {
-                             SchematicObject::Symbol { .. } => self.adjacent_to(member),
-                             _ => false
-                         })
-            }
-            _ => false
-        }
-    }
-
-    pub fn is_gear(&self, parts: &[SchematicObject]) -> bool {
-        match self {
-            &SchematicObject::Symbol { symbol, .. } => {
-                symbol == '*' &&
-                    parts.iter().filter(|&part| part.adjacent_to(self)).count() == 2
-            }
-            _ => unimplemented!() // Won't happen... hopefully!
-        }
-    }
-
-    pub fn gear_ratio(&self, parts: &[SchematicObject]) -> u32 {
-        match self {
-            &SchematicObject::Symbol { .. } => {
-                let values = parts.iter().filter(|&part| part.adjacent_to(self)).map(|part| part.num()).collect::<Vec<_>>();
-                values[0] * values[1]
-            }
-            _ => unimplemented!() // Won't happen... hopefully!
         }
     }
 }
@@ -131,46 +137,112 @@ pub fn parse_line(line: &str, row: i32) -> Vec<SchematicObject> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse_line;
-    use crate::{Coords, SchematicObject};
+    use crate::{parse_line, Number, SchematicObject, Symbol};
+
+    const SAMPLE_INPUT: &str = include_str!("../input.small");
 
     #[test]
     fn parsing() {
         assert_eq!(
             parse_line("467..114..", 0),
             vec![
-                SchematicObject::Number { number: 467, coords: vec![Coords { x: 0, y: 0 }, Coords { x: 1, y: 0 }, Coords { x: 2, y: 0}] },
-                SchematicObject::Number { number: 114, coords: vec![Coords { x: 5, y: 0 }, Coords { x: 6, y: 0 }, Coords { x: 7, y: 0}] },
+                SchematicObject::Numeric(Number::new(467, &[0, 1, 2], 0)),
+                SchematicObject::Numeric(Number::new(114, &[5, 6, 7], 0)),
             ]);
         assert_eq!(
             parse_line("...*......", 1),
             vec![
-                SchematicObject::Symbol { symbol: '*', coords: Coords { x: 3, y: 1 } }
+                SchematicObject::Symbolic(Symbol::new('*', 3, 1)),
             ]);
         assert_eq!(
             parse_line("......*617", 4),
             vec![
-                SchematicObject::Symbol { symbol: '*', coords: Coords { x: 6, y: 4 } },
-                SchematicObject::Number { number: 617, coords: vec![Coords { x: 7, y: 4 }, Coords { x: 8, y: 4 }, Coords { x: 9, y: 4}] },
+                SchematicObject::Symbolic(Symbol::new('*', 6, 4)),
+                SchematicObject::Numeric(Number::new(617, &[7, 8, 9], 4))
             ]);
     }
 
     #[test]
     fn is_part() {
         let symbols = vec![
-                SchematicObject::Symbol { symbol: '*', coords: Coords { x: 3, y: 1 } },
-                SchematicObject::Symbol { symbol: '*', coords: Coords { x: 6, y: 4 } },
+            Symbol::new('*', 3, 1),
+            Symbol::new('*', 6, 4),
         ];
-        let num1 = SchematicObject::Number {
-            number: 617,
-            coords: vec![Coords { x: 7, y: 4 }, Coords { x: 8, y: 4 }, Coords { x: 9, y: 4}]
-        };
-        let num2 = SchematicObject::Number {
-            number: 58,
-            coords: vec![Coords { x: 8, y: 5 }, Coords { x: 9, y: 5 }],
-        };
+
+        let num1 = Number::new(617, &[7, 8, 9], 4);
+        let num2 = Number::new(58, &[8, 9], 5);
 
         assert!(num1.is_part_num(&symbols));
         assert!(!num2.is_part_num(&symbols));
+    }
+
+    fn collect_objects(source: &str) -> (Vec<Symbol>, Vec<Number>) {
+        let mut numbers = vec![];
+        let mut symbols = vec![];
+        let mut lines = source.lines().enumerate();
+
+        while let Some((row, line)) = lines.next() {
+            let row = row as i32;
+
+            for object in parse_line(&line, row as i32) {
+                match object {
+                    SchematicObject::Numeric(num) => {
+                        numbers.push(num)
+                    }
+                    SchematicObject::Symbolic(sym) => {
+                        symbols.push(sym);
+                    }
+                }
+            }
+        }
+
+        (symbols, numbers)
+    }
+
+    #[test]
+    fn identify_parts() {
+        // WARNING: this test is based on the sample input, which doesn't cover ALL test
+        // cases. Crucially, there are only two numbers that are not adjacent to symbols,
+        // and they're both TO THE RIGHT of any relevant symbol (within 1 row). This
+        // allows false positives with certain wrong implementation of the adjacency test.
+        //
+        // Figured it out the hard way... Luckily, only when refactoring (*sigh*). Well,
+        // moving on...
+        let (symbols, numbers) = collect_objects(SAMPLE_INPUT);
+        let mut parts = numbers;
+
+        parts.retain(|number| number.is_part_num(&symbols));
+
+        let test_parts = vec![
+            Number::new(467, &[0, 1, 2], 0),
+            Number::new(35, &[2, 3], 2),
+            Number::new(633, &[6, 7, 8], 2),
+            Number::new(617, &[0, 1, 2], 4),
+            Number::new(592, &[2, 3, 4], 6),
+            Number::new(755, &[6, 7, 8], 7),
+            Number::new(664, &[1, 2, 3], 9),
+            Number::new(598, &[5, 6, 7], 9),
+        ];
+
+        assert_eq!(parts, test_parts);
+    }
+
+    #[test]
+    fn identify_gears() {
+        let (symbols, numbers) = collect_objects(SAMPLE_INPUT);
+        let parts = numbers.into_iter()
+            .filter(|num| num.is_part_num(&symbols))
+            .collect::<Vec<_>>();
+
+        let gears = symbols.into_iter()
+            .filter(|sym| sym.gear_ratio(&parts).is_some())
+            .collect::<Vec<_>>();
+
+        let test_gears = vec![
+            Symbol::new('*', 3, 1),
+            Symbol::new('*', 5, 8),
+        ];
+
+        assert_eq!(gears, test_gears);
     }
 }
