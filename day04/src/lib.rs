@@ -26,12 +26,15 @@ impl Card {
         }
     }
 
-    pub fn value(&self) -> u64 {
-        let matches = self.owned
+    pub fn winner_count(&self) -> usize {
+        self.owned
             .iter()
             .filter(|&n| self.winning.contains(n))
-            .count();
+            .count()
+    }
 
+    pub fn value(&self) -> u64 {
+        let matches = self.winner_count();
         if matches > 0 {
             1u64 << (matches - 1)
         } else {
