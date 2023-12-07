@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use anyhow::bail;
 
@@ -39,6 +39,54 @@ pub struct Hand {
     pub bid: u64,
 }
 
+impl Hand {
+    pub fn from_str(value: &str, with_joker: bool) -> Hand {
+        let (hand_raw, bid) = value.split_once(' ').unwrap();
+        let cards: Vec<Card> = hand_raw.chars().map(|f| Card::from_char(f, with_joker).unwrap()).collect();
+        let kind = Kind::from_cards(&cards).unwrap();
+        let bid = bid.parse::<u64>().unwrap();
+
+        Hand {
+            kind,
+            cards,
+            bid
+        }
+    }
+}
+
+impl ToString for Card {
+    fn to_string(&self) -> String {
+        match self {
+            Card::Joker => 'J',
+            Card::Two => '2',
+            Card::Three => '3',
+            Card::Four => '4',
+            Card::Five => '5',
+            Card::Six => '6',
+            Card::Seven => '7',
+            Card::Eight => '8',
+            Card::Nine => '9',
+            Card::Ten => 'T',
+            Card::Jack => 'j',
+            Card::Queen => 'Q',
+            Card::King => 'K',
+            Card::Ace => 'A',
+        }.to_string()
+    }
+}
+
+impl Display for Hand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} => {:?}",
+               self.cards
+                   .iter()
+                   .map(|c| c.to_string())
+                   .collect::<Vec<_>>()
+                   .join(""),
+               self.kind)
+    }
+}
+
 impl Kind {
     fn from_cards(cards: &[Card]) -> anyhow::Result<Kind> {
         if cards.len() != 5 {
@@ -46,7 +94,13 @@ impl Kind {
         }
 
         let mut unique = HashMap::new();
+        let mut jokers = 0;
+        // Don't include the jokers in the mapping
         for card in cards {
+            if *card == Card::Joker {
+                jokers += 1;
+            }
+
             let count = unique.entry(card).or_insert(0);
             *count += 1;
         }
@@ -54,11 +108,32 @@ impl Kind {
         let mut card_count = unique.values().cloned().collect::<Vec<_>>();
         card_count.sort();
 
+
         Ok(match unique.len() {
-            5 => Kind::High,
-            4 => Kind::Pair,
-            3 => if card_count == [1, 2, 2] { Kind::TwoPair } else { Kind::ThreeOf }
-            2 => if card_count == [1, 4] { Kind::FourOf } else { Kind::Full }
+            5 => if jokers == 0 { Kind::High } else { Kind::Pair },
+            // For the following case, jokers could be 1 or 2. In either
+            // case we can call Three of a Kind
+            4 => if jokers == 0 { Kind::Pair } else { Kind::ThreeOf }
+            3 => if card_count == [1, 2, 2] {
+                match jokers {
+                    0 => Kind::TwoPair,
+                    1 => Kind::Full,
+                    // The remaining case: there are 2 jokers
+                    _ => Kind::FourOf,
+                }
+            } else { // Has to be [1, 1, 3]
+                match jokers {
+                    0 => Kind::ThreeOf,
+                    // The remaining case: there are either 1 or 3 jokers,
+                    // the result is the same
+                    _ => Kind::FourOf
+                }
+            }
+            2 => if jokers == 0 {
+                if card_count == [1, 4] { Kind::FourOf } else { Kind::Full }
+            } else {
+                Kind::FiveOf
+            }
             1 => Kind::FiveOf,
             _ => unimplemented!() // Can't happen
         })
@@ -93,21 +168,6 @@ impl Hand {
     }
 }
 
-impl From<&str> for Hand {
-    fn from(value: &str) -> Self {
-        let (hand_raw, bid) = value.split_once(' ').unwrap();
-        let cards: Vec<Card> = hand_raw.chars().map(|f| Card::from_char(f, false).unwrap()).collect();
-        let kind = Kind::from_cards(&cards).unwrap();
-        let bid = bid.parse::<u64>().unwrap();
-
-        Hand {
-            kind,
-            cards,
-            bid
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{Card, Hand, Kind};
@@ -117,7 +177,7 @@ mod tests {
     #[test]
     fn parse_line () {
         let line = "32T3K 765";
-        let hand: Hand = line.into();
+        let hand = Hand::from_str(line, false);
 
         assert_eq!(hand, Hand::new(
                     Kind::Pair,
@@ -125,7 +185,7 @@ mod tests {
                     765));
 
         let line = "QQQJA 483";
-        let hand: Hand = line.into();
+        let hand = Hand::from_str(line, false);
 
         assert_eq!(hand, Hand::new(
                     Kind::ThreeOf,
@@ -136,7 +196,7 @@ mod tests {
     #[test]
     fn compare_hands () {
         let hands: Vec<Hand> = SAMPLE_INPUT.lines()
-            .map(|line| line.into())
+            .map(|line| Hand::from_str(line, false))
             .collect();
 
         assert!(hands[1] > hands[0]);

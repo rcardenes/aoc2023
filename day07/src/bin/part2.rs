@@ -4,7 +4,7 @@ use day07::Hand;
 
 fn main() {
     let mut hands: Vec<Hand> = stdin().lines()
-        .map(|line| Hand::from_str(line.unwrap().as_str(), false))
+        .map(|line| Hand::from_str(line.unwrap().as_str(), true))
         .collect();
 
     hands.sort();
