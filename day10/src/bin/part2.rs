@@ -5,7 +5,7 @@ use day10::parse_input;
 
 fn main() -> Result<()> {
     let map = parse_input(BufReader::new(stdin()))?;
-    println!("Total steps: {}", map.find_furthest());
+    println!("Number of enclosed cells: {}", map.count_inside());
 
     Ok(())
 }
